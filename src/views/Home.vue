@@ -2,6 +2,7 @@
 import http from "@/request/http.js";
 
 export default {
+
   name: "Home",
   data() {
     return {
@@ -9,6 +10,9 @@ export default {
       orders: [],
       dialogTableVisible: false,
       dialogFormVisible: false,
+      updateFormVisible: false,
+      table:false,
+      direction: 'rtl',
       order:{
         id:"",
         orderCode:"",
@@ -16,8 +20,8 @@ export default {
         price:"",
         isPay:0,
         address:"",
-      }
-
+      },
+      isPayOrdersData:[]
     }
   },
   async mounted() {
@@ -29,7 +33,73 @@ export default {
       this.$message.error('获取订单数据失败：' + (error.response?.data?.message || '请稍后重试'));
     }
   },
+
   methods: {
+
+    async updateById(){
+      const res = await http.post("/updateOrder", this.order);
+
+      if(res.data.code === 200){
+        this.$message({
+          message : res.data.msg,
+          type : "success"
+        })
+      }else {
+        this.$message({
+          "message":res.data.msg,
+          "type":"error"
+        })
+      }
+    },
+    handleEdit(rowInfo){
+      this.order = rowInfo;
+
+    },
+
+    findOrders(){
+       http.get("/findOrderByIsPay?isPay="+1).then(res=>{
+         console.log(res);
+         if(res.data.code === 200){
+           this.isPayOrdersData = res.data.data;
+
+         }else {
+           this.$message.error(res.data.msg);
+         }
+       })
+    },
+
+
+    async deleteById(id) {
+      try {
+        // 显示确认对话框
+        await this.$confirm('此操作将永久删除该订单, 是否继续?', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+
+        // 调用删除接口
+        const res = await http.get(`/deleteOrderById/${id}`);
+
+        // 检查响应结果
+        if (res.data.code === 200) {
+          // 删除成功后，重新获取订单列表或从本地数据中移除
+          this.orders = this.orders.filter(order => order.id !== id);
+          this.$message.success(res.data.msg);
+        } else {
+          this.$message.error(res.data.message || '删除失败');
+        }
+      } catch (error) {
+        // 用户取消删除或请求失败
+        if (error !== 'cancel') {
+          this.$message.error('删除失败: ' + (error.response?.data?.message || '请稍后重试'));
+        }
+      }
+    },
+
+
+
+
     handleSelect(key, keyPath) {
       console.log(key, keyPath);
       switch (key) {
@@ -40,41 +110,31 @@ export default {
           this.dialogFormVisible = true;
           break;
         case '3':
-          this.$message('查看历史订单');
+          this.table = true;
           break;
         case '4':
-          this.$message('进入个人后台');
+          this.dialogFormVisible = true;
           break;
       }
     },
 
-    getStatusClass(status) {
-      switch (status) {
-        case '已完成':
-          return 'status-completed';
-        case '处理中':
-          return 'status-processing';
-        case '待处理':
-          return 'status-pending';
-        default:
-          return '';
-      }
-    },
 
-    saveOrder() {
+    async saveOrder() {
+      var params = {
+        orderCode: this.order.orderCode,
+        orderName: this.order.orderName,
+        price: this.order.price,
+        isPay: this.order.isPay,
+        address: this.order.address,
+      }
       // 这里应该添加保存订单的逻辑
-      console.log('保存订单:', this.order);
-      // 重置表单
-      this.order = {
-        id: "",
-        orderCode: "",
-        orderName: "",
-        price: "",
-        isPay: 0,
-        address: ""
-      };
-      // 关闭对话框
-      this.dialogFormVisible = false;
+      var res = await http.post("/addOrder",params)
+      if (res.data.code === 200) {
+        this.$message(res.data.message)
+      }else {
+        this.$message.error(res.data.message)
+      }
+
       this.$message.success('订单保存成功');
     }
   }
@@ -83,6 +143,53 @@ export default {
 
 <template>
   <div id="home">
+
+    <el-drawer
+        title="已付款的订单"
+        :visible.sync="table"
+        direction="rtl"
+        size="50%">
+      <el-table :data="isPayOrdersData">
+        <el-table-column property="id" label="序号" width="150"></el-table-column>
+        <el-table-column property="orderCode" label="订单编号" width="150"></el-table-column>
+        <el-table-column property="orderName" label="订单名称" width="150"></el-table-column>
+        <el-table-column property="price" label="价格" width="150"></el-table-column>
+        <el-table-column property="address" label="配送地址" width="150"></el-table-column>
+      </el-table>
+    </el-drawer>
+
+
+
+    <el-dialog title="修改订单" :visible.sync="updateFormVisible">
+      <el-form :model="order">
+        <el-form-item label="订单编号" :label-width="'120px'">
+          <el-input v-model="order.orderCode" autocomplete="off"></el-input>
+        </el-form-item>
+
+        <el-form-item label="订单名称" :label-width="'120px'">
+          <el-input v-model="order.orderName" autocomplete="off"></el-input>
+        </el-form-item>
+
+        <el-form-item label="订单价格" :label-width="'120px'">
+          <el-input v-model="order.price" autocomplete="off"></el-input>
+        </el-form-item>
+
+        <el-form-item label="支付情况" :label-width="'120px'">
+          <el-input v-model="order.isPay" autocomplete="off"></el-input>
+        </el-form-item>
+
+        <el-form-item label="配送地址" :label-width="'120px'">
+          <el-input v-model="order.address" autocomplete="off"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="updateFormVisible = false">取 消</el-button>
+        <el-button type="primary" @click="updateById(updateFormVisible = false)">确 定</el-button>
+      </div>
+    </el-dialog>
+
+
+
 
     <el-dialog title="添加订单" :visible.sync="dialogFormVisible">
       <el-form :model="order">
@@ -108,7 +215,7 @@ export default {
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogFormVisible = false">取 消</el-button>
-        <el-button type="primary" @click="saveOrder">确 定</el-button>
+        <el-button type="primary" @click="saveOrder(dialogFormVisible = false)">确 定</el-button>
       </div>
     </el-dialog>
 
@@ -149,7 +256,7 @@ export default {
             >
               <el-menu-item index="1">订单信息</el-menu-item>
               <el-menu-item index="2">添加订单</el-menu-item>
-              <el-menu-item index="3">历史订单</el-menu-item>
+              <el-menu-item index="3" @click="findOrders()">已付款订单</el-menu-item>
               <el-menu-item index="4">进入个人后台</el-menu-item>
             </el-menu>
           </div>
@@ -240,6 +347,14 @@ export default {
                 prop="address"
                 label="配送地址"
                 sortable>
+            </el-table-column>
+            <el-table-column
+                label="操作"
+                sortable>
+              <template slot - scope="scope">
+                <el-button @click="deleteById(scope.row.id)">删除</el-button>
+                <el-button @click="handleEdit(scope.row,updateFormVisible = true)">修改</el-button>
+              </template>
             </el-table-column>
           </el-table>
         </div>
