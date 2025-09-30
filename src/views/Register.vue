@@ -70,7 +70,7 @@
 </template>
 
 <script>
-import axios  from "axios";
+import http from "@/request/http";
 
 export default {
   name: 'Register',
@@ -95,14 +95,28 @@ export default {
   },
   methods: {
    async handleReg() {
-    let {data : res} = await axios.post("http://localhost:8080/addUser",{
-        //获取数据发送请求
-        data:{
+      // 先进行表单验证
+      this.$refs.regForm.validate(async (valid) => {
+        if (!valid) return;
+
+        let {data : res} = await http.post('/addUser', {
           userName: this.regForm.username,
           password: this.regForm.password,
+        })
+        if(res.code === 200){
+          this.$message({
+            "message": res.msg,
+            "type": 'success'
+          })
+          await this.$router.push('Login')
+        }else{
+          this.$message({
+            "message": res.msg,
+            "type": 'error'
+          })
         }
-      })
-     console.log("res",res);
+
+      });
     },
     goToLogin() {
       this.$router.push('/Login');

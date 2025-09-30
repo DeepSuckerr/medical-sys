@@ -6,4 +6,23 @@ const instance = axios.create({
 })
 
 
+axios.interceptors.request.use(function (config) {
+
+//配置请求拦截器
+    //成功拦截时处理具体的请求
+    return config;
+},function (error) {
+
+    return Promise.reject(error);
+})
+
+
+//配置响应拦截器
+axios.interceptors.response.use(function (response) {
+    return response;
+}, function (error) {
+    return Promise.reject(error);
+})
+
 export default instance;
+
